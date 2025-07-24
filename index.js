@@ -1,72 +1,39 @@
-// index.js
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
+const express = require("express");
+const { RtcTokenBuilder, RtcRole } = require("agora-access-token");
+const dotenv = require("dotenv");
+dotenv.config();
 
 const app = express();
-app.use(cors());
+const PORT = process.env.PORT || 3000;
 
-// ENV Variables
-const PORT = process.env.PORT || 5000;
-const APP_ID = process.env.AGORA_APP_ID;
-const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
+app.get("/ping", (req, res) => {
+  res.send("pong");
+});
 
-// Helper function to generate token
-function generateToken(channelName, uid, role, expireTime = 3600) {
-  if (!APP_ID || !APP_CERTIFICATE) {
-    throw new Error("Missing Agora credentials in environment variables.");
+app.get("/rtc/token", (req, res) => {
+  const { channelName, uid, role } = req.query;
+
+  if (!channelName || !uid || !role) {
+    return res.status(400).json({ error: "Missing required parameters" });
   }
 
-  const expirationTimeInSeconds = Math.floor(Date.now() / 1000) + expireTime;
-  return RtcTokenBuilder.buildTokenWithUid(
-    APP_ID,
-    APP_CERTIFICATE,
+  const rtcRole = role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
+  const expirationTimeInSeconds = 3600;
+  const currentTimestamp = Math.floor(Date.now() / 1000);
+  const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+  const token = RtcTokenBuilder.buildTokenWithUid(
+    process.env.AGORA_APP_ID,
+    process.env.AGORA_APP_CERTIFICATE,
     channelName,
-    uid,
-    role,
-    expirationTimeInSeconds
+    parseInt(uid),
+    rtcRole,
+    privilegeExpiredTs
   );
-}
 
-// Health Check Endpoint
-app.get('/ping', (req, res) => {
-  res.send('✅ Agora Token Server is live!');
+  return res.json({ token });
 });
 
-// Query Parameters Endpoint
-app.get('/rtc/token', (req, res) => {
-  const channelName = req.query.channelName;
-  const uid = parseInt(req.query.uid) || 0;
-  const role = req.query.role === 'subscriber' ? RtcRole.SUBSCRIBER : RtcRole.PUBLISHER;
-
-  if (!channelName) {
-    return res.status(400).json({ error: 'channelName is required' });
-  }
-
-  try {
-    const token = generateToken(channelName, uid, role);
-    return res.json({ token });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-// Path Parameters Endpoint
-app.get('/rtc/:channelName/:role/:tokentype/:uid', (req, res) => {
-  const channelName = req.params.channelName;
-  const uid = parseInt(req.params.uid);
-  const role = req.params.role === 'subscriber' ? RtcRole.SUBSCRIBER : RtcRole.PUBLISHER;
-
-  try {
-    const token = generateToken(channelName, uid, role);
-    return res.json({ token });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-// Start Server
 app.listen(PORT, () => {
-  console.log(`✅ Agora Token Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
