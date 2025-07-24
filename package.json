@@ -8,6 +8,6 @@
   "dependencies": {
     "express": "^4.19.2",
     "dotenv": "^16.4.5",
-    "agora-access-token": "^2.0.7"
+    "agora-access-token": "^2.1.4"
   }
 }
